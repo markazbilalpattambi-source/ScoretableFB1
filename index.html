@@ -93,11 +93,8 @@
           <h3>Add New Team</h3>
           <form id="addTeamForm">
             <input type="text" id="teamNameInput" placeholder="Team Name" required>
-            <input type="url" id="teamLogoInput" placeholder="Logo Image URL">
-            <div style="display:flex; gap:0.5rem; align-items:center;">
-              <input type="file" id="teamLogoFileInput" accept="image/*" style="flex:1;">
-              <button type="button" id="uploadLogoBtn" class="btn-secondary" style="white-space:nowrap;">Upload Photo</button>
-            </div>
+            <input type="url" id="teamLogoInput" placeholder="Logo Image URL (or choose a photo below)">
+            <input type="file" id="teamLogoFileInput" accept="image/*">
             <button type="submit" class="btn-primary">Add Team</button>
           </form>
         </div>

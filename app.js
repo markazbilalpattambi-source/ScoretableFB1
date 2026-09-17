@@ -294,43 +294,37 @@ if (roundSelectElemGlobal) {
 }
 
 // ============================================================
-// Upload a team logo photo from device -> fills the URL field
-// ============================================================
-const uploadLogoBtn = document.getElementById('uploadLogoBtn');
-if (uploadLogoBtn) {
-  uploadLogoBtn.addEventListener('click', async () => {
-    const file = document.getElementById('teamLogoFileInput')?.files?.[0];
-    if (!file) return alert("Choose a photo first.");
-    if (!file.type.startsWith('image/')) return alert("Please choose an image file.");
-
-    uploadLogoBtn.disabled = true;
-    uploadLogoBtn.textContent = 'Uploading…';
-
-    const path = `team-logos/${Date.now()}-${file.name}`;
-    const { error: uploadError } = await sb.storage.from(ASSETS_BUCKET).upload(path, file, { upsert: true });
-
-    uploadLogoBtn.disabled = false;
-    uploadLogoBtn.textContent = 'Upload Photo';
-
-    if (uploadError) return alert("Upload failed: " + uploadError.message);
-
-    const { data: urlData } = sb.storage.from(ASSETS_BUCKET).getPublicUrl(path);
-    document.getElementById('teamLogoInput').value = urlData.publicUrl;
-    document.getElementById('teamLogoFileInput').value = '';
-    alert("Photo uploaded — now click \"Add Team\" to save it.");
-  });
-}
-
-// ============================================================
-// Add Team
+// Add Team (uploads a chosen photo automatically, if one was picked)
 // ============================================================
 const addTeamForm = document.getElementById('addTeamForm');
 if (addTeamForm) {
   addTeamForm.addEventListener('submit', async (e) => {
     e.preventDefault();
+    const submitBtn = addTeamForm.querySelector('button[type="submit"]');
     const name = document.getElementById('teamNameInput').value.trim();
-    const logo = document.getElementById('teamLogoInput').value.trim();
+    let logo = document.getElementById('teamLogoInput').value.trim();
+    const file = document.getElementById('teamLogoFileInput')?.files?.[0];
+
+    if (file) {
+      if (!file.type.startsWith('image/')) return alert("Please choose an image file.");
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Uploading photo…';
+
+      const path = `team-logos/${Date.now()}-${file.name}`;
+      const { error: uploadError } = await sb.storage.from(ASSETS_BUCKET).upload(path, file, { upsert: true });
+
+      if (uploadError) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Add Team';
+        return alert("Photo upload failed: " + uploadError.message);
+      }
+      const { data: urlData } = sb.storage.from(ASSETS_BUCKET).getPublicUrl(path);
+      logo = urlData.publicUrl;
+    }
+
     e.target.reset();
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Add Team';
 
     const { error } = await sb.from('teams').insert({
       sport: currentSport, name, logo, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0

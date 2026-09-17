@@ -7,6 +7,9 @@ const SUPABASE_ANON_KEY = "sb_publishable_enxZMkyuLJpZdqpYJfra9Q_30wn_fqV";
 
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+// Shared Supabase Storage bucket for admin-uploaded files (logos, music, etc)
+const ASSETS_BUCKET = 'site-assets';
+
 // Points awarded per win, by sport (badminton has no draws)
 const POINTS_PER_WIN = { football: 3, badminton: 1 };
 
@@ -287,6 +290,34 @@ if (roundSelectElemGlobal) {
   roundSelectElemGlobal.addEventListener('change', (e) => {
     lastSelectedRound = e.target.value;
     localStorage.setItem('lastSelectedRound', lastSelectedRound);
+  });
+}
+
+// ============================================================
+// Upload a team logo photo from device -> fills the URL field
+// ============================================================
+const uploadLogoBtn = document.getElementById('uploadLogoBtn');
+if (uploadLogoBtn) {
+  uploadLogoBtn.addEventListener('click', async () => {
+    const file = document.getElementById('teamLogoFileInput')?.files?.[0];
+    if (!file) return alert("Choose a photo first.");
+    if (!file.type.startsWith('image/')) return alert("Please choose an image file.");
+
+    uploadLogoBtn.disabled = true;
+    uploadLogoBtn.textContent = 'Uploading…';
+
+    const path = `team-logos/${Date.now()}-${file.name}`;
+    const { error: uploadError } = await sb.storage.from(ASSETS_BUCKET).upload(path, file, { upsert: true });
+
+    uploadLogoBtn.disabled = false;
+    uploadLogoBtn.textContent = 'Upload Photo';
+
+    if (uploadError) return alert("Upload failed: " + uploadError.message);
+
+    const { data: urlData } = sb.storage.from(ASSETS_BUCKET).getPublicUrl(path);
+    document.getElementById('teamLogoInput').value = urlData.publicUrl;
+    document.getElementById('teamLogoFileInput').value = '';
+    alert("Photo uploaded — now click \"Add Team\" to save it.");
   });
 }
 
@@ -814,7 +845,6 @@ document.addEventListener('DOMContentLoaded', () => {
 // Welcome Music — admin can replace it with any file from their device
 // ============================================================
 const DEFAULT_MUSIC_SRC = 'welcome-song.mp3';
-const MUSIC_BUCKET = 'site-assets';
 
 function applyMusicUrl(url) {
   const audio = document.getElementById('entrance-audio');
@@ -851,14 +881,14 @@ if (uploadMusicBtn) {
     uploadMusicBtn.textContent = 'Uploading…';
 
     const path = `welcome-music/${Date.now()}-${file.name}`;
-    const { error: uploadError } = await sb.storage.from(MUSIC_BUCKET).upload(path, file, { upsert: true });
+    const { error: uploadError } = await sb.storage.from(ASSETS_BUCKET).upload(path, file, { upsert: true });
 
     uploadMusicBtn.disabled = false;
     uploadMusicBtn.textContent = 'Upload & Set as Welcome Music';
 
     if (uploadError) return alert("Upload failed: " + uploadError.message);
 
-    const { data: urlData } = sb.storage.from(MUSIC_BUCKET).getPublicUrl(path);
+    const { data: urlData } = sb.storage.from(ASSETS_BUCKET).getPublicUrl(path);
     const publicUrl = urlData.publicUrl;
 
     const { error: settingError } = await sb.from('site_settings').upsert({ key: 'welcome_music_url', value: publicUrl });

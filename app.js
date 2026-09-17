@@ -294,16 +294,56 @@ if (roundSelectElemGlobal) {
 }
 
 // ============================================================
-// Add Team (uploads a chosen photo automatically, if one was picked)
+// Add / Edit Team — one modal handles both
 // ============================================================
-const addTeamForm = document.getElementById('addTeamForm');
-if (addTeamForm) {
-  addTeamForm.addEventListener('submit', async (e) => {
+const teamFormModal = document.getElementById('teamFormModal');
+const teamForm = document.getElementById('teamForm');
+const openAddTeamBtn = document.getElementById('openAddTeamBtn');
+const closeTeamFormModal = document.getElementById('closeTeamFormModal');
+const teamFormRemoveLogoBtn = document.getElementById('teamFormRemoveLogoBtn');
+
+function openTeamModal(team = null) {
+  document.getElementById('teamFormTitle').textContent = team ? 'Edit Team' : 'Add New Team';
+  document.getElementById('teamFormSubmitBtn').textContent = team ? 'Save Changes' : 'Add Team';
+  document.getElementById('teamFormId').value = team ? team.id : '';
+  document.getElementById('teamFormName').value = team ? team.name : '';
+  document.getElementById('teamFormLogoUrl').value = team ? (team.logo || '') : '';
+  document.getElementById('teamFormLogoFile').value = '';
+
+  const currentLogoRow = document.getElementById('teamFormCurrentLogoRow');
+  if (team && team.logo) {
+    document.getElementById('teamFormCurrentLogo').innerHTML = renderLogoTag(team.logo);
+    currentLogoRow.classList.remove('hidden');
+  } else {
+    currentLogoRow.classList.add('hidden');
+  }
+
+  teamFormModal?.classList.remove('hidden');
+}
+
+window.openEditTeamModal = function (id) {
+  const team = cachedTeamsAll.find(t => t.id === id);
+  if (team) openTeamModal(team);
+};
+
+if (openAddTeamBtn) openAddTeamBtn.addEventListener('click', () => openTeamModal(null));
+if (closeTeamFormModal) closeTeamFormModal.addEventListener('click', () => teamFormModal?.classList.add('hidden'));
+
+if (teamFormRemoveLogoBtn) {
+  teamFormRemoveLogoBtn.addEventListener('click', () => {
+    document.getElementById('teamFormLogoUrl').value = '';
+    document.getElementById('teamFormCurrentLogoRow').classList.add('hidden');
+  });
+}
+
+if (teamForm) {
+  teamForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const submitBtn = addTeamForm.querySelector('button[type="submit"]');
-    const name = document.getElementById('teamNameInput').value.trim();
-    let logo = document.getElementById('teamLogoInput').value.trim();
-    const file = document.getElementById('teamLogoFileInput')?.files?.[0];
+    const submitBtn = document.getElementById('teamFormSubmitBtn');
+    const teamId = document.getElementById('teamFormId').value;
+    const name = document.getElementById('teamFormName').value.trim();
+    let logo = document.getElementById('teamFormLogoUrl').value.trim();
+    const file = document.getElementById('teamFormLogoFile')?.files?.[0];
 
     if (file) {
       if (!file.type.startsWith('image/')) return alert("Please choose an image file.");
@@ -315,20 +355,21 @@ if (addTeamForm) {
 
       if (uploadError) {
         submitBtn.disabled = false;
-        submitBtn.textContent = 'Add Team';
+        submitBtn.textContent = teamId ? 'Save Changes' : 'Add Team';
         return alert("Photo upload failed: " + uploadError.message);
       }
       const { data: urlData } = sb.storage.from(ASSETS_BUCKET).getPublicUrl(path);
       logo = urlData.publicUrl;
     }
 
-    e.target.reset();
     submitBtn.disabled = false;
-    submitBtn.textContent = 'Add Team';
+    submitBtn.textContent = teamId ? 'Save Changes' : 'Add Team';
+    teamFormModal?.classList.add('hidden');
 
-    const { error } = await sb.from('teams').insert({
-      sport: currentSport, name, logo, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0
-    });
+    const { error } = teamId
+      ? await sb.from('teams').update({ name, logo }).eq('id', teamId)
+      : await sb.from('teams').insert({ sport: currentSport, name, logo, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 });
+
     if (error) alert(error.message);
   });
 }
@@ -784,18 +825,12 @@ function renderAdminTeams(teams) {
       <div class="admin-team-row">
         <div class="admin-team-info">${renderLogoTag(team.logo)}<span>${team.name}</span></div>
         <div class="admin-team-actions">
-          <button class="btn-edit" onclick="editTeam('${team.id}', '${team.name.replace(/'/g, "\\'")}', '${(team.logo || '').replace(/'/g, "\\'")}')">Edit</button>
+          <button class="btn-edit" onclick="openEditTeamModal('${team.id}')">Edit</button>
           <button class="btn-delete" onclick="deleteTeam('${team.id}')">Delete</button>
         </div>
       </div>`;
   });
 }
-
-window.editTeam = function (id, name, logo) {
-  const n = prompt("Edit Name:", name);
-  const l = prompt("Edit Logo URL:", logo);
-  if (n) sb.from('teams').update({ name: n.trim(), logo: l ? l.trim() : '' }).eq('id', id).then(({ error }) => { if (error) alert(error.message); });
-};
 
 window.deleteTeam = function (id) {
   const sport = cachedTeamsAll.find(t => t.id === id)?.sport || currentSport;

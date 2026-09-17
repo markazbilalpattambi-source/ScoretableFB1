@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ScoreTable FB1</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- Supabase SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+  <!-- Top Navigation Bar -->
+  <nav class="navbar">
+    <div class="brand-row">
+      <div class="brand-title" id="brandTitle">Score<span class="logo-accent">Table</span></div>
+      <div class="header-controls">
+        <button id="dashboardBtn" class="icon-btn hidden">📊 Dashboard</button>
+        <button id="themeToggle" class="icon-btn" title="Toggle Theme">🌓</button>
+      </div>
+    </div>
+
+    <div class="sport-pill-widget">
+      <button id="sportFootball" class="sport-btn active" data-sport="football">⚽ Football</button>
+      <button id="sportBadminton" class="sport-btn" data-sport="badminton">🏸 Badminton</button>
+    </div>
+
+    <div class="nav-pill-widget">
+      <button id="navStandings" class="nav-btn active">Table</button>
+      <button id="navMatches" class="nav-btn">Matches</button>
+      <button id="navResults" class="nav-btn">Results</button>
+    </div>
+  </nav>
+
+  <!-- Main Container -->
+  <div class="container">
+
+    <!-- Standings Page -->
+    <div id="pageStandings" class="page-view active">
+      <h2 class="section-title" id="standingsTitle">League Table</h2>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th class="sticky-col">Club</th>
+              <th>MP</th>
+              <th>W</th>
+              <th id="colDraw">D</th>
+              <th>L</th>
+              <th id="colGF">GF</th>
+              <th id="colGA">GA</th>
+              <th id="colGD">GD</th>
+              <th>Pts</th>
+            </tr>
+          </thead>
+          <tbody id="leagueTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Match Center Page -->
+    <div id="pageMatches" class="page-view">
+      <h2 class="section-title">Upcoming Matches</h2>
+      <div id="upcomingRoundsContainer" class="rounds-container"></div>
+    </div>
+
+    <!-- Results Page -->
+    <div id="pageResults" class="page-view">
+      <h2 class="section-title">Match Results</h2>
+      <div id="resultsRoundsContainer" class="rounds-container"></div>
+    </div>
+
+    <!-- Admin Panel Page -->
+    <div id="pageAdmin" class="page-view">
+      <div class="admin-header">
+        <h2>Admin Dashboard <span id="adminSportTag" class="admin-sport-tag">Football</span></h2>
+        <button id="logoutBtn" class="btn-delete">Logout</button>
+      </div>
+
+      <div class="admin-grid">
+        <!-- Add Team -->
+        <div class="admin-card">
+          <h3>Add New Team</h3>
+          <form id="addTeamForm">
+            <input type="text" id="teamNameInput" placeholder="Team Name" required>
+            <input type="url" id="teamLogoInput" placeholder="Logo Image URL">
+            <button type="submit" class="btn-primary">Add Team</button>
+          </form>
+        </div>
+
+        <!-- Schedule Match -->
+        <div class="admin-card">
+          <h3>Schedule Match</h3>
+          <form id="scheduleMatchForm">
+            <select id="roundSelect" required>
+              <option value="" disabled selected>Select Round</option>
+              <option value="1">Round 1</option>
+              <option value="2">Round 2</option>
+              <option value="3">Round 3</option>
+              <option value="4">Round 4</option>
+              <option value="5">Round 5</option>
+              <option value="6">Round 6</option>
+              <option value="7">Round 7</option>
+              <option value="8">Round 8</option>
+              <option value="9">Round 9</option>
+              <option value="10">Pre-Quarter Final</option>
+              <option value="11">Semi-Final 1</option>
+              <option value="12">Semi-Final 2</option>
+              <option value="13">Final</option>
+            </select>
+            <input type="number" id="matchNumberInput" placeholder="Match Number (e.g. 1, 2, 3)" min="1" required>
+            <select id="homeTeamSelect" required><option value="" disabled selected>Select Home Team</option></select>
+            <select id="awayTeamSelect" required><option value="" disabled selected>Select Away Team</option></select>
+            <button type="submit" class="btn-primary">Schedule Match</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Upcoming Matches Grouped by Rounds -->
+      <div class="admin-card full-width">
+        <h3>Upcoming Matches (Select Round to Manage)</h3>
+        <div id="adminUpcomingRoundsList" class="rounds-button-grid"></div>
+      </div>
+
+      <!-- Completed Matches Grouped by Rounds -->
+      <div class="admin-card full-width">
+        <h3>Completed Matches (Select Round to Manage Scores)</h3>
+        <div id="adminCompletedRoundsList" class="rounds-button-grid"></div>
+      </div>
+
+      <!-- Manage Teams -->
+      <div class="admin-card full-width">
+        <h3>Manage Teams</h3>
+        <div id="adminTeamsList" class="admin-list"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Login Modal -->
+  <div id="loginModal" class="modal hidden">
+    <div class="modal-content">
+      <span id="closeModal" class="close-btn">&times;</span>
+      <h3>Admin Login</h3>
+      <form id="loginForm">
+        <input type="email" id="loginEmail" placeholder="Admin Email" required>
+        <input type="password" id="loginPassword" placeholder="Password" required>
+        <button type="submit" class="btn-primary">Login</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Round Matches Popup Modal -->
+  <div id="roundMatchesModal" class="modal hidden">
+    <div class="modal-content modal-large">
+      <span id="closeRoundMatchesModal" class="close-btn">&times;</span>
+      <h3 id="roundModalTitle">Round Matches</h3>
+      <div id="roundMatchesList" class="admin-list"></div>
+    </div>
+  </div>
+
+  <!-- Edit Match Modal -->
+  <div id="editMatchModal" class="modal hidden">
+    <div class="modal-content">
+      <span id="closeEditMatchModal" class="close-btn">&times;</span>
+      <h3>Edit Match Details</h3>
+      <form id="editMatchForm">
+        <input type="hidden" id="editMatchId">
+        <select id="editRoundSelect" required>
+          <option value="1">Round 1</option>
+          <option value="2">Round 2</option>
+          <option value="3">Round 3</option>
+          <option value="4">Round 4</option>
+          <option value="5">Round 5</option>
+          <option value="6">Round 6</option>
+          <option value="7">Round 7</option>
+          <option value="8">Round 8</option>
+          <option value="9">Round 9</option>
+          <option value="10">Pre-Quarter Final</option>
+          <option value="11">Semi-Final 1</option>
+          <option value="12">Semi-Final 2</option>
+          <option value="13">Final</option>
+        </select>
+        <input type="number" id="editMatchNumberInput" placeholder="Match Number" min="1" required>
+        <select id="editHomeTeamSelect" required></select>
+        <select id="editAwayTeamSelect" required></select>
+        <button type="submit" class="btn-primary">Save Changes</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Football Score Entry Modal -->
+  <div id="scoreModal" class="modal hidden">
+    <div class="modal-content score-modal-box">
+      <span id="closeScoreModal" class="close-btn">&times;</span>
+      <h3 class="score-modal-heading">Match Result</h3>
+
+      <form id="scoreModalForm">
+        <input type="hidden" id="scoreMatchId">
+
+        <div class="score-board-wrapper">
+          <div class="score-team-col home">
+            <div id="scoreHomeLogoContainer" class="score-logo-box"></div>
+            <span id="scoreHomeName" class="score-team-name">Home</span>
+          </div>
+
+          <div class="score-input-group">
+            <input type="number" id="homeScoreInput" class="score-box" min="0" placeholder="0" required>
+            <span class="score-hyphen">-</span>
+            <input type="number" id="awayScoreInput" class="score-box" min="0" placeholder="0" required>
+          </div>
+
+          <div class="score-team-col away">
+            <div id="scoreAwayLogoContainer" class="score-logo-box"></div>
+            <span id="scoreAwayName" class="score-team-name">Away</span>
+          </div>
+        </div>
+
+        <div class="score-modal-actions">
+          <button type="button" id="cancelScoreBtn" class="btn-secondary">Cancel</button>
+          <button type="submit" class="btn-primary">Done</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Badminton Score Entry Modal (Best of 3 games) -->
+  <div id="bmScoreModal" class="modal hidden">
+    <div class="modal-content score-modal-box">
+      <span id="closeBmScoreModal" class="close-btn">&times;</span>
+      <h3 class="score-modal-heading">Match Result (Best of 3)</h3>
+
+      <form id="bmScoreModalForm">
+        <input type="hidden" id="bmScoreMatchId">
+
+        <div class="bm-header-row">
+          <span id="bmHomeName" class="score-team-name">Home</span>
+          <span></span>
+          <span id="bmAwayName" class="score-team-name">Away</span>
+        </div>
+
+        <div class="bm-game-row">
+          <span class="bm-game-label">Game 1</span>
+          <input type="number" id="bmG1Home" class="score-box" min="0" placeholder="0" required>
+          <span class="score-hyphen">-</span>
+          <input type="number" id="bmG1Away" class="score-box" min="0" placeholder="0" required>
+        </div>
+        <div class="bm-game-row">
+          <span class="bm-game-label">Game 2</span>
+          <input type="number" id="bmG2Home" class="score-box" min="0" placeholder="0" required>
+          <span class="score-hyphen">-</span>
+          <input type="number" id="bmG2Away" class="score-box" min="0" placeholder="0" required>
+        </div>
+        <div class="bm-game-row">
+          <span class="bm-game-label">Game 3 <em>(if needed)</em></span>
+          <input type="number" id="bmG3Home" class="score-box" min="0" placeholder="-">
+          <span class="score-hyphen">-</span>
+          <input type="number" id="bmG3Away" class="score-box" min="0" placeholder="-">
+        </div>
+
+        <p id="bmWinnerPreview" class="bm-winner-preview"></p>
+
+        <div class="score-modal-actions">
+          <button type="button" id="bmCancelScoreBtn" class="btn-secondary">Cancel</button>
+          <button type="submit" class="btn-primary">Done</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <p>&copy; 2026 ScoreTable FB1</p>
+  </footer>
+
+  <script src="app.js"></script>
+  <audio id="entrance-audio" src="welcome-song.mp3" preload="auto" loop></audio>
+
+  <button id="music-toggle-btn" style="position: fixed; bottom: 20px; right: 20px; z-index: 1000; padding: 10px 15px; border-radius: 20px; border: none; background: #333; color: #fff; cursor: pointer; font-size: 14px;">
+    🔊 Mute Music
+  </button>
+</body>
+</html>

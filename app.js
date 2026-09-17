@@ -2,8 +2,8 @@
 // SUPABASE CONFIG — fill these in after creating your project
 // Supabase Dashboard -> Project Settings -> API
 // ============================================================
-const SUPABASE_URL = "https://sittasodwwpnnrrqdgkh.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_enxZMkyuLJpZdqpYJfra9Q_30wn_fqV";
+const SUPABASE_URL = "YOUR_SUPABASE_PROJECT_URL";
+const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
 
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -785,17 +785,18 @@ window.deleteTeam = function (id) {
 // ============================================================
 // Audio Controls
 // ============================================================
+let musicIsStarted = false;
+
 document.addEventListener('DOMContentLoaded', () => {
   const audio = document.getElementById('entrance-audio');
   const toggleBtn = document.getElementById('music-toggle-btn');
   if (audio && toggleBtn) {
-    let isStarted = false;
     const startAudio = () => {
-      if (!isStarted) audio.play().then(() => { isStarted = true; toggleBtn.textContent = '🔊 Mute Music'; }).catch(() => {});
+      if (!musicIsStarted) audio.play().then(() => { musicIsStarted = true; toggleBtn.textContent = '🔊 Mute Music'; }).catch(() => {});
     };
     startAudio();
     const handleFirstInteraction = () => {
-      if (!isStarted) startAudio();
+      if (!musicIsStarted) startAudio();
       document.removeEventListener('click', handleFirstInteraction);
       document.removeEventListener('keydown', handleFirstInteraction);
     };
@@ -803,11 +804,80 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('keydown', handleFirstInteraction);
     toggleBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      if (audio.paused) { audio.play(); isStarted = true; toggleBtn.textContent = '🔊 Mute Music'; }
+      if (audio.paused) { audio.play(); musicIsStarted = true; toggleBtn.textContent = '🔊 Mute Music'; }
       else { audio.pause(); toggleBtn.textContent = '🔇 Play Music'; }
     });
   }
 });
+
+// ============================================================
+// Welcome Music — admin can replace it with any file from their device
+// ============================================================
+const DEFAULT_MUSIC_SRC = 'welcome-song.mp3';
+const MUSIC_BUCKET = 'site-assets';
+
+function applyMusicUrl(url) {
+  const audio = document.getElementById('entrance-audio');
+  if (!audio) return;
+  const wasPlaying = musicIsStarted && !audio.paused;
+  audio.src = url || DEFAULT_MUSIC_SRC;
+  audio.load();
+  if (wasPlaying) audio.play().catch(() => {});
+  const label = document.getElementById('currentMusicLabel');
+  if (label) label.textContent = url ? `Current: ${decodeURIComponent(url.split('/').pop())}` : 'Current: default track';
+}
+
+async function loadMusicSetting() {
+  const { data, error } = await sb.from('site_settings').select('value').eq('key', 'welcome_music_url').maybeSingle();
+  if (error) return console.error(error);
+  applyMusicUrl(data?.value || null);
+}
+
+sb.channel('public:site_settings')
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'site_settings' }, loadMusicSetting)
+  .subscribe();
+
+const musicFileInput = document.getElementById('musicFileInput');
+const uploadMusicBtn = document.getElementById('uploadMusicBtn');
+const resetMusicBtn = document.getElementById('resetMusicBtn');
+
+if (uploadMusicBtn) {
+  uploadMusicBtn.addEventListener('click', async () => {
+    const file = musicFileInput?.files?.[0];
+    if (!file) return alert("Choose an audio file first.");
+    if (!file.type.startsWith('audio/')) return alert("Please choose an audio file (mp3, wav, etc).");
+
+    uploadMusicBtn.disabled = true;
+    uploadMusicBtn.textContent = 'Uploading…';
+
+    const path = `welcome-music/${Date.now()}-${file.name}`;
+    const { error: uploadError } = await sb.storage.from(MUSIC_BUCKET).upload(path, file, { upsert: true });
+
+    uploadMusicBtn.disabled = false;
+    uploadMusicBtn.textContent = 'Upload & Set as Welcome Music';
+
+    if (uploadError) return alert("Upload failed: " + uploadError.message);
+
+    const { data: urlData } = sb.storage.from(MUSIC_BUCKET).getPublicUrl(path);
+    const publicUrl = urlData.publicUrl;
+
+    const { error: settingError } = await sb.from('site_settings').upsert({ key: 'welcome_music_url', value: publicUrl });
+    if (settingError) return alert("Uploaded, but failed to set it live: " + settingError.message);
+
+    musicFileInput.value = '';
+    alert("Welcome music updated for all visitors.");
+  });
+}
+
+if (resetMusicBtn) {
+  resetMusicBtn.addEventListener('click', async () => {
+    if (!confirm("Reset welcome music back to the site's default track?")) return;
+    const { error } = await sb.from('site_settings').upsert({ key: 'welcome_music_url', value: null });
+    if (error) return alert(error.message);
+  });
+}
+
+loadMusicSetting();
 
 // ============================================================
 // Init
